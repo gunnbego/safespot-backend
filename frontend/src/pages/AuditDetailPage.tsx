@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import httpClient from '../api/httpClient';
@@ -74,6 +74,7 @@ const AuditDetailPage = () => {
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionPhotos, setResolutionPhotos] = useState<File[]>([]);
   const [resolving, setResolving] = useState(false);
+  const resolvingRef = useRef(false);
 
   const closeModal = () => {
     if (window.history.length > 1) navigate(-1);
@@ -128,6 +129,8 @@ const AuditDetailPage = () => {
 
   const handleResolve = async () => {
     if (!id) return;
+    if (resolvingRef.current) return;
+    resolvingRef.current = true;
     setMessage('');
     setResolving(true);
     try {
@@ -139,6 +142,7 @@ const AuditDetailPage = () => {
     } catch {
       setMessage('Could not resolve report.');
     } finally {
+      resolvingRef.current = false;
       setResolving(false);
     }
   };

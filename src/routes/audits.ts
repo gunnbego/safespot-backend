@@ -31,6 +31,8 @@ const blankToNull = (value: string | null | undefined) => {
   return trimmed ? trimmed : null;
 };
 
+const RECENT_DUPLICATE_WINDOW_MS = 15_000;
+
 const withNames = {
   createdBy: { select: { username: true } },
   resolvedBy: { select: { username: true } },
@@ -139,16 +141,40 @@ const routes: FastifyPluginAsync = async (app) => {
       if (storageError) return storageError;
     }
 
+    const reportData = {
+      title: body.title,
+      notes: body.notes ?? null,
+      category: defaultIfBlank(body.category, "General"),
+      severity: defaultIfBlank(body.severity, "Low"),
+      status: defaultIfBlank(body.status, "Open"),
+    };
+
+    const recentDuplicate = await app.prisma.safetyReport.findFirst({
+      where: {
+        organisationId,
+        teamId: team.id,
+        createdById: user.id,
+        title: reportData.title,
+        notes: reportData.notes,
+        category: reportData.category,
+        severity: reportData.severity,
+        status: reportData.status,
+        createdAt: { gte: new Date(Date.now() - RECENT_DUPLICATE_WINDOW_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (recentDuplicate) {
+      app.log.warn({ reportId: recentDuplicate.id, username: user.username }, "Suppressed duplicate safety report create");
+      const dto = await loadDto(req, recentDuplicate.id, true);
+      return reply.code(200).send(dto);
+    }
+
     const report = await app.prisma.safetyReport.create({
       data: {
         organisationId,
         teamId: team.id,
         createdById: user.id,
-        title: body.title,
-        notes: body.notes ?? null,
-        category: defaultIfBlank(body.category, "General"),
-        severity: defaultIfBlank(body.severity, "Low"),
-        status: defaultIfBlank(body.status, "Open"),
+        ...reportData,
       },
     });
     if (photos.length) {
@@ -245,6 +271,10 @@ const routes: FastifyPluginAsync = async (app) => {
 
     const report = await app.prisma.safetyReport.findFirst({ where: { id: auditId, organisationId } });
     if (!report) throw notFound("Audit not found");
+    if (report.status.toLowerCase() === "resolved") {
+      const dto = await loadDto(req, report.id, true);
+      return dto;
+    }
     if (photos.length) {
       const storageError = assertBlobConfigured(reply);
       if (storageError) return storageError;

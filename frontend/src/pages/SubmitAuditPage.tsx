@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import { useAuth } from '../auth/AuthProvider';
@@ -54,6 +54,7 @@ const SubmitAuditPage = () => {
   const [photos, setPhotos] = useState<File[]>([]);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -71,6 +72,8 @@ const SubmitAuditPage = () => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setMessage('');
     setSubmitting(true);
 
@@ -89,6 +92,7 @@ const SubmitAuditPage = () => {
         setMessage('Could not submit safety report.');
       }
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
