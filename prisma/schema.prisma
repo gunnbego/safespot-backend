@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum PhotoPurpose {
+  HAZARD
+  RESOLUTION
+}
+
+model Organisation {
+  id                 Int      @id @default(autoincrement())
+  name               String   @db.VarChar(255)
+  slug               String   @unique @db.VarChar(255)
+  tier               String   @default("free") @db.VarChar(50)
+  subscriptionStatus String   @default("active") @map("subscription_status") @db.VarChar(50)
+  createdAt          DateTime @default(now()) @map("created_at")
+  createdById        Int?     @map("created_by_id")
+  metadata           Json?
+
+  teams   Team[]
+  users   User[]
+  reports SafetyReport[]
+  photos  SafetyReportPhoto[]
+  logs    AuditLog[]
+
+  @@map("organisations")
+}
+
+model Team {
+  id             Int    @id @default(autoincrement())
+  organisationId Int    @map("organisation_id")
+  name           String @db.VarChar(100)
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  users        User[]
+  reports      SafetyReport[]
+
+  @@unique([organisationId, name])
+  @@index([organisationId])
+  @@map("teams")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  organisationId Int      @map("organisation_id")
+  teamId         Int?     @map("team_id")
+  username       String   @db.VarChar(100)
+  email          String?  @db.VarChar(255)
+  phone          String?  @db.VarChar(50)
+  passwordHash   String   @map("password_hash") @db.VarChar(255)
+  role           Role     @default(MEMBER)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  team            Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdReports  SafetyReport[] @relation("ReportCreatedBy")
+  resolvedReports SafetyReport[] @relation("ReportResolvedBy")
+  logs            AuditLog[]
+
+  @@unique([organisationId, username])
+  @@index([organisationId])
+  @@index([organisationId, email])
+  @@map("users")
+}
+
+/// Equivalent of the legacy `audits` table. The public API still speaks
+/// "audits" (`/api/audits`) even though the product calls them hazards/incidents.
+model SafetyReport {
+  id                Int       @id @default(autoincrement())
+  organisationId    Int       @map("organisation_id")
+  teamId            Int       @map("team_id")
+  createdById       Int       @map("created_by_id")
+  resolvedById      Int?      @map("resolved_by_id")
+  title             String    @db.VarChar(255)
+  notes             String?
+  category          String    @default("General") @db.VarChar(100)
+  severity          String    @default("Low") @db.VarChar(50)
+  status            String    @default("Open") @db.VarChar(50)
+  resolutionComment String?   @map("resolution_comment")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  resolvedAt        DateTime? @map("resolved_at")
+
+  organisation Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  team         Team                @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  createdBy    User                @relation("ReportCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  resolvedBy   User?               @relation("ReportResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  photos       SafetyReportPhoto[]
+
+  @@index([organisationId])
+  @@index([organisationId, teamId])
+  @@index([organisationId, status, createdAt(sort: Desc)])
+  @@index([organisationId, resolvedAt(sort: Desc)])
+  @@index([organisationId, createdById])
+  @@map("safety_reports")
+}
+
+/// Equivalent of the legacy `audit_photos` table. Image bytes are stored in
+/// Postgres (like the Spring Boot implementation) and served back as data URLs.
+model SafetyReportPhoto {
+  id             Int          @id @default(autoincrement())
+  organisationId Int          @map("organisation_id")
+  reportId       Int          @map("report_id")
+  fileName       String?      @map("file_name") @db.VarChar(255)
+  contentType    String       @map("content_type") @db.VarChar(100)
+  sizeBytes      Int          @map("size_bytes")
+  data           Bytes
+  purpose        PhotoPurpose @default(HAZARD)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  report       SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([organisationId, reportId])
+  @@index([organisationId, purpose])
+  @@map("safety_report_photos")
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  organisationId Int      @map("organisation_id")
+  userId         Int?     @map("user_id")
+  action         String   @db.VarChar(50)
+  resourceType   String   @map("resource_type") @db.VarChar(100)
+  resourceId     Int?     @map("resource_id")
+  resourceName   String?  @map("resource_name") @db.VarChar(255)
+  timestamp      DateTime @default(now())
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  details        Json?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, timestamp(sort: Desc)])
+  @@index([userId])
+  @@index([action, timestamp(sort: Desc)])
+  @@map("audit_log")
+}

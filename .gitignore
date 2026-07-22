@@ -1,0 +1,10 @@
+node_modules/
+dist/
+public/
+frontend/dist/
+frontend/node_modules/
+.env
+.env.local
+.env.*.local
+.vercel
+*.log

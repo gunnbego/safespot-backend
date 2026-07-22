@@ -1,0 +1,45 @@
+{
+  "name": "safespot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SafeSpot multi-tenant safety reporting backend (Fastify + Prisma on Vercel)",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "frontend:install": "npm --prefix frontend ci",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:stage": "node scripts/stage-frontend-for-vercel.mjs",
+    "vercel-build": "npm run frontend:install && npm run frontend:build && npm run frontend:stage && prisma generate && tsc -p tsconfig.json",
+    "start": "node dist/src/server.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "node scripts/prisma-with-env.mjs migrate dev",
+    "db:migrate:deploy": "node scripts/prisma-with-env.mjs migrate deploy",
+    "db:migrate:status": "node scripts/prisma-with-env.mjs migrate status",
+    "db:seed:company": "tsx prisma/seed-company.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/multipart": "^9.0.0",
+    "@fastify/rate-limit": "^10.0.0",
+    "@fastify/swagger": "^9.5.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "@prisma/client": "^6.10.0",
+    "bcrypt": "^6.0.0",
+    "fastify": "^5.4.0",
+    "fastify-plugin": "^5.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^24.0.0",
+    "prisma": "^6.10.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  }
+}
