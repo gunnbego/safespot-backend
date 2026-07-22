@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../api/authApi';
+import ButtonLoader from '../components/ButtonLoader';
 
 const RegisterPage = () => {
   const [organizationSlug, setOrganizationSlug] = useState('');
@@ -68,7 +69,7 @@ const RegisterPage = () => {
           />
         </label>
         <button type="submit" disabled={saving}>
-          {saving ? 'Creating account...' : 'Create Account'}
+          <ButtonLoader loading={saving} loadingText="Creating account...">Create Account</ButtonLoader>
         </button>
         {error && <div className="form-error">{error}</div>}
         <div className="form-footer">

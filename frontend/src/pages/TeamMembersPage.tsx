@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { teamApi, MemberPayload, OrganizationMember, Team } from '../api/teamApi';
+import ButtonLoader from '../components/ButtonLoader';
 
 type Role = 'MEMBER' | 'MANAGER';
 type MemberMode = 'invite' | 'view' | 'edit';
@@ -36,6 +37,11 @@ const TeamMembersPage = () => {
   const [teamName, setTeamName] = useState('');
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [loading, setLoading] = useState(true);
+  const [savingMember, setSavingMember] = useState(false);
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
+  const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -135,6 +141,7 @@ const TeamMembersPage = () => {
     event.preventDefault();
     setMessage('');
     setError('');
+    setSavingMember(true);
 
     try {
       if (memberMode === 'edit' && memberForm.id) {
@@ -155,12 +162,15 @@ const TeamMembersPage = () => {
       await loadManagerData();
     } catch (saveError: any) {
       setError(saveError.response?.data?.error ?? 'Could not save user.');
+    } finally {
+      setSavingMember(false);
     }
   };
 
   const deleteMember = async (member: OrganizationMember) => {
     setMessage('');
     setError('');
+    setDeletingMemberId(member.id);
     try {
       await teamApi.deleteMember(member.id);
       closeMemberModal();
@@ -168,6 +178,8 @@ const TeamMembersPage = () => {
       await loadManagerData();
     } catch (deleteError: any) {
       setError(deleteError.response?.data?.error ?? 'Could not delete user.');
+    } finally {
+      setDeletingMemberId(null);
     }
   };
 
@@ -179,12 +191,15 @@ const TeamMembersPage = () => {
 
     setMessage('');
     setError('');
+    setResettingPassword(true);
     try {
       await teamApi.resetMemberPassword(selectedMember.id, resetPasswordValue.trim());
       setResetPasswordValue('');
       setMessage(`Password reset for ${selectedMember.username}.`);
     } catch (resetError: any) {
       setError(resetError.response?.data?.error ?? 'Could not reset password.');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -192,6 +207,7 @@ const TeamMembersPage = () => {
     event.preventDefault();
     setMessage('');
     setError('');
+    setCreatingTeam(true);
     try {
       await teamApi.createTeam(teamName);
       setTeamName('');
@@ -200,18 +216,23 @@ const TeamMembersPage = () => {
       await loadManagerData();
     } catch (teamError: any) {
       setError(teamError.response?.data?.error ?? 'Could not create team.');
+    } finally {
+      setCreatingTeam(false);
     }
   };
 
   const deleteTeam = async (team: Team) => {
     setMessage('');
     setError('');
+    setDeletingTeamId(team.id);
     try {
       await teamApi.deleteTeam(team.id);
       setMessage(`${team.name} deleted.`);
       await loadManagerData();
     } catch (teamError: any) {
       setError(teamError.response?.data?.error ?? 'Could not delete team.');
+    } finally {
+      setDeletingTeamId(null);
     }
   };
 
@@ -223,8 +244,8 @@ const TeamMembersPage = () => {
           <p>Manage users, roles, team assignments, and access details.</p>
         </div>
         <div className="button-row">
-          <button type="button" className="secondary-button" onClick={loadManagerData}>
-            Refresh
+          <button type="button" className="secondary-button" onClick={loadManagerData} disabled={loading}>
+            <ButtonLoader loading={loading} loadingText="Refreshing...">Refresh</ButtonLoader>
           </button>
           <button type="button" onClick={openInviteModal}>
             Invite user
@@ -353,8 +374,8 @@ const TeamMembersPage = () => {
               <strong>{team.name}</strong>
               <span>{team.memberCount} members</span>
             </div>
-            <button type="button" className="danger-button" onClick={() => deleteTeam(team)}>
-              Delete
+            <button type="button" className="danger-button" onClick={() => deleteTeam(team)} disabled={deletingTeamId === team.id}>
+              <ButtonLoader loading={deletingTeamId === team.id} loadingText="Deleting...">Delete</ButtonLoader>
             </button>
           </article>
         ))}
@@ -439,7 +460,11 @@ const TeamMembersPage = () => {
                   </label>
                 )}
                 <div className="button-row">
-                  <button type="submit">{memberMode === 'invite' ? 'Send invite' : 'Save changes'}</button>
+                  <button type="submit" disabled={savingMember}>
+                    <ButtonLoader loading={savingMember} loadingText={memberMode === 'invite' ? 'Sending...' : 'Saving...'}>
+                      {memberMode === 'invite' ? 'Send invite' : 'Save changes'}
+                    </ButtonLoader>
+                  </button>
                   {memberMode === 'edit' && (
                     <button type="button" className="secondary-button" onClick={() => setMemberMode('view')}>
                       Cancel
@@ -474,14 +499,14 @@ const TeamMembersPage = () => {
                       type="password"
                       placeholder="New password"
                     />
-                    <button type="button" onClick={resetPassword}>
-                      Reset
+                    <button type="button" onClick={resetPassword} disabled={resettingPassword}>
+                      <ButtonLoader loading={resettingPassword} loadingText="Resetting...">Reset</ButtonLoader>
                     </button>
                   </div>
                 </div>
                 <div className="button-row">
-                  <button type="button" className="danger-button" onClick={() => deleteMember(selectedMember)}>
-                    Delete user
+                  <button type="button" className="danger-button" onClick={() => deleteMember(selectedMember)} disabled={deletingMemberId === selectedMember.id}>
+                    <ButtonLoader loading={deletingMemberId === selectedMember.id} loadingText="Deleting...">Delete user</ButtonLoader>
                   </button>
                 </div>
               </div>
@@ -507,7 +532,9 @@ const TeamMembersPage = () => {
                 Team name
                 <input value={teamName} onChange={(event) => setTeamName(event.target.value)} required />
               </label>
-              <button type="submit">Create team</button>
+              <button type="submit" disabled={creatingTeam}>
+                <ButtonLoader loading={creatingTeam} loadingText="Creating...">Create team</ButtonLoader>
+              </button>
             </form>
           </section>
         </div>

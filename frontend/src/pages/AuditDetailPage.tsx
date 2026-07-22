@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import httpClient from '../api/httpClient';
 import { useAuth } from '../auth/AuthProvider';
+import ButtonLoader from '../components/ButtonLoader';
 import { compressImage } from './SubmitAuditPage';
 
 interface AuditPhoto {
@@ -72,6 +73,7 @@ const AuditDetailPage = () => {
   const [message, setMessage] = useState('');
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionPhotos, setResolutionPhotos] = useState<File[]>([]);
+  const [resolving, setResolving] = useState(false);
 
   const closeModal = () => {
     if (window.history.length > 1) navigate(-1);
@@ -127,6 +129,7 @@ const AuditDetailPage = () => {
   const handleResolve = async () => {
     if (!id) return;
     setMessage('');
+    setResolving(true);
     try {
       const resolvedAudit = await auditApi.resolveAudit(id, resolutionComment, resolutionPhotos);
       setAudit(resolvedAudit);
@@ -135,6 +138,8 @@ const AuditDetailPage = () => {
       setMessage('Report marked as resolved.');
     } catch {
       setMessage('Could not resolve report.');
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -149,7 +154,9 @@ const AuditDetailPage = () => {
             <p>{audit.severity} risk · {audit.status}</p>
           </div>
           {canResolve && (
-            <button className="resolve-button" type="button" onClick={handleResolve}>Mark resolved</button>
+            <button className="resolve-button" type="button" onClick={handleResolve} disabled={resolving}>
+              <ButtonLoader loading={resolving} loadingText="Resolving...">Mark resolved</ButtonLoader>
+            </button>
           )}
         </div>
         {message && <div className="form-message">{message}</div>}

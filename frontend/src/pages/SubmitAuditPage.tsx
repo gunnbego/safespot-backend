@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import { useAuth } from '../auth/AuthProvider';
+import ButtonLoader from '../components/ButtonLoader';
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1800;
@@ -52,6 +53,7 @@ const SubmitAuditPage = () => {
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -70,6 +72,7 @@ const SubmitAuditPage = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage('');
+    setSubmitting(true);
 
     try {
       await auditApi.submitAudit({ title, category, severity, status: 'Open', notes, teamId: user?.teamId, photos });
@@ -85,6 +88,8 @@ const SubmitAuditPage = () => {
       } else {
         setMessage('Could not submit safety report.');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -137,7 +142,9 @@ const SubmitAuditPage = () => {
             ))}
           </div>
         )}
-        <button type="submit">Submit report</button>
+        <button type="submit" disabled={submitting}>
+          <ButtonLoader loading={submitting} loadingText="Submitting...">Submit report</ButtonLoader>
+        </button>
         {message && <div className="form-message">{message}</div>}
       </form>
     </section>

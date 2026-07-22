@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import ButtonLoader from '../components/ButtonLoader';
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [organizationSlug, setOrganizationSlug] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setSaving(true);
     try {
       await login(username, password, organizationSlug);
       navigate('/');
@@ -24,6 +27,8 @@ const LoginPage = () => {
       } else {
         setError('Login failed. Please try again.');
       }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -49,7 +54,9 @@ const LoginPage = () => {
           Password
           <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required />
         </label>
-        <button type="submit">Sign In</button>
+        <button type="submit" disabled={saving}>
+          <ButtonLoader loading={saving} loadingText="Signing in...">Sign In</ButtonLoader>
+        </button>
         {error && <div className="form-error">{error}</div>}
         <div className="form-footer">
           <span>New here?</span>{' '}

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
+import ButtonLoader from '../components/ButtonLoader';
 
 const AccountSettingsPage = () => {
   const { user, updateAccount } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setName(user?.name ?? '');
@@ -15,11 +17,14 @@ const AccountSettingsPage = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage('');
+    setSaving(true);
     try {
       await updateAccount(name, email);
       setMessage('Account updated successfully.');
     } catch (error) {
       setMessage('Could not update account.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -35,7 +40,9 @@ const AccountSettingsPage = () => {
           Email
           <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
         </label>
-        <button type="submit">Save Changes</button>
+        <button type="submit" disabled={saving}>
+          <ButtonLoader loading={saving} loadingText="Saving...">Save Changes</ButtonLoader>
+        </button>
         {message && <div className="form-message">{message}</div>}
       </form>
     </section>
