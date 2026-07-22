@@ -38,6 +38,7 @@ const ManagerDashboard = () => {
   const { user } = useAuth();
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [customising, setCustomising] = useState(false);
   const [tileIds, setTileIds] = useState<DashboardTileId[]>(() => {
     const saved = window.localStorage.getItem(tileStorageKey(user?.id));
     if (!saved) return defaultTileIds;
@@ -130,10 +131,15 @@ const ManagerDashboard = () => {
           <h1>Dashboard</h1>
           <p>Good evening, {user?.name}. Here is the WHS position across your company.</p>
         </div>
-        <Link className="primary-action" to="/submit">Create issue</Link>
+        <div className="button-row dashboard-actions">
+          <button type="button" className="secondary-button" onClick={() => setCustomising((value) => !value)}>
+            {customising ? 'Done' : 'Customise tiles'}
+          </button>
+          <Link className="primary-action" to="/submit">Create issue</Link>
+        </div>
       </div>
 
-      <div className="dashboard-panel tile-picker">
+      {customising && <div className="dashboard-panel tile-picker">
         <h2>Dashboard tiles</h2>
         <div className="tile-toggle-grid">
           {ALL_DASHBOARD_TILES.map((tileId) => (
@@ -147,7 +153,7 @@ const ManagerDashboard = () => {
             </label>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div className="metric-grid">
         {visibleTileIds.map((tileId) => {

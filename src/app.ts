@@ -47,7 +47,13 @@ export async function buildApp() {
     logger: { redact: ["req.headers.authorization", "body.password"] },
     trustProxy: config.TRUST_PROXY,
   });
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        "img-src": ["'self'", "data:", "blob:"],
+      },
+    },
+  });
   await app.register(cors, { origin: corsOrigins.length ? corsOrigins : false });
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
   // Matches the Spring config: 5MB per photo, 20MB per request.

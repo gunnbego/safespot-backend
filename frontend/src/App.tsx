@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, Link, NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, Route, Routes, Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import LoginPage from './pages/LoginPage';
@@ -14,45 +15,80 @@ import AccountSettingsPage from './pages/AccountSettingsPage';
 
 const App = () => {
   const { user, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
   const isManager = user?.role === 'manager';
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const nav = (
+    <nav className="side-nav">
+      {user ? (
+        <>
+          <span className="nav-section">Operate</span>
+          {isManager ? (
+            <>
+              <NavLink to="/manager">Dashboard</NavLink>
+              <NavLink to="/team-audits">Hazard register</NavLink>
+              <NavLink to="/submit">Create issue</NavLink>
+              <NavLink to="/team">People & teams</NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink to="/member">Home</NavLink>
+              <NavLink to="/submit">Report issue</NavLink>
+              <NavLink to="/my-audits">My reports</NavLink>
+            </>
+          )}
+          <span className="nav-section">Account</span>
+          <NavLink to="/account">Settings</NavLink>
+          <button className="link-button" onClick={logout}>Sign out</button>
+        </>
+      ) : (
+        <NavLink to="/login">Sign in</NavLink>
+      )}
+    </nav>
+  );
+
+  const logo = (
+    <Link to="/" className="logo" aria-label="SafeSpot dashboard">
+      <span className="logo-mark">S</span>
+      <span>
+        SafeSpot
+        <small>WHS OPERATIONS</small>
+      </span>
+    </Link>
+  );
 
   return (
     <div className="app-shell">
+      <header className="mobile-topbar">
+        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+          <span />
+          <span />
+          <span />
+        </button>
+        <span className="logo-mark mobile-logo-mark">S</span>
+        <strong>SafeSpot</strong>
+      </header>
+
       <aside className="app-sidebar">
-        <Link to="/" className="logo" aria-label="SafeSpot dashboard">
-          <span className="logo-mark">S</span>
-          <span>
-            SafeSpot
-            <small>WHS OPERATIONS</small>
-          </span>
-        </Link>
-        <nav className="side-nav">
-          {user ? (
-            <>
-              <span className="nav-section">Operate</span>
-              {isManager ? (
-                <>
-                  <NavLink to="/manager">Dashboard</NavLink>
-                  <NavLink to="/team-audits">Hazard register</NavLink>
-                  <NavLink to="/submit">Create issue</NavLink>
-                  <NavLink to="/team">People & teams</NavLink>
-                </>
-              ) : (
-                <>
-                  <NavLink to="/member">Home</NavLink>
-                  <NavLink to="/submit">Report issue</NavLink>
-                  <NavLink to="/my-audits">My reports</NavLink>
-                </>
-              )}
-              <span className="nav-section">Account</span>
-              <NavLink to="/account">Settings</NavLink>
-              <button className="link-button" onClick={logout}>Sign out</button>
-            </>
-          ) : (
-            <NavLink to="/login">Sign in</NavLink>
-          )}
-        </nav>
+        {logo}
+        {nav}
       </aside>
+
+      {menuOpen && (
+        <>
+          <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
+          <aside className="mobile-drawer" aria-label="Main menu">
+            <button className="drawer-close" type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu">x</button>
+            {logo}
+            {nav}
+          </aside>
+        </>
+      )}
 
       <main className="app-content">
         <Routes>

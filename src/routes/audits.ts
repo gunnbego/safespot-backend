@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import type { FastifyReply } from "fastify";
 import { z } from "zod";
 import { PhotoPurpose, Prisma } from "@prisma/client";
 import { get, put } from "@vercel/blob";
@@ -41,6 +42,14 @@ const safeBlobName = (fileName: string | null, fallback: string) =>
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || fallback;
+
+const assertBlobConfigured = (reply: FastifyReply) => {
+  if (process.env.BLOB_READ_WRITE_TOKEN || (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID)) return null;
+  return reply.code(503).send({
+    error: "Photo storage is not configured",
+    message: "Set BLOB_READ_WRITE_TOKEN on the backend server, or connect Vercel Blob to this project.",
+  });
+};
 
 const routes: FastifyPluginAsync = async (app) => {
   const currentUser = async (req: FastifyRequest) => {
@@ -125,6 +134,10 @@ const routes: FastifyPluginAsync = async (app) => {
     const team = await app.prisma.team.findFirst({ where: { id: teamId, organisationId } });
     if (!team) throw badRequest("Team not found");
     if (user.teamId !== team.id) throw forbidden("User cannot submit audits for this team");
+    if (photos.length) {
+      const storageError = assertBlobConfigured(reply);
+      if (storageError) return storageError;
+    }
 
     const report = await app.prisma.safetyReport.create({
       data: {
@@ -215,7 +228,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(404).send({ error: "Photo file not found" });
   });
 
-  app.patch("/:auditId/resolve", { preHandler: authed }, async (req) => {
+  app.patch("/:auditId/resolve", { preHandler: authed }, async (req, reply) => {
     const { auditId } = idParam.parse(req.params);
     const organisationId = req.auth.organisationId;
 
@@ -232,6 +245,10 @@ const routes: FastifyPluginAsync = async (app) => {
 
     const report = await app.prisma.safetyReport.findFirst({ where: { id: auditId, organisationId } });
     if (!report) throw notFound("Audit not found");
+    if (photos.length) {
+      const storageError = assertBlobConfigured(reply);
+      if (storageError) return storageError;
+    }
 
     await app.prisma.safetyReport.update({
       where: { id: report.id },

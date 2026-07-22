@@ -3,43 +3,45 @@ import { useNavigate } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import { useAuth } from '../auth/AuthProvider';
 
-const MAX_IMAGE_EDGE = 1600;
-const JPEG_QUALITY = 0.78;
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 1800;
+
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('Could not prepare image for upload.'))),
+      'image/jpeg',
+      quality
+    );
+  });
 
 export const compressImage = async (file: File): Promise<File> => {
   if (!file.type.startsWith('image/')) {
     throw new Error('Only images can be attached.');
   }
 
-  const image = new Image();
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error('Could not read image.'));
-      image.src = objectUrl;
-    });
+  if (file.size <= MAX_UPLOAD_BYTES) return file;
 
+  const image = await createImageBitmap(file).catch(() => {
+    throw new Error('Could not read image.');
+  });
+
+  try {
     const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Could not compress image.');
 
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => (result ? resolve(result) : reject(new Error('Could not compress image.'))),
-        'image/jpeg',
-        JPEG_QUALITY
-      );
-    });
+    let blob = await canvasToBlob(canvas, 0.82);
+    if (blob.size > MAX_UPLOAD_BYTES) blob = await canvasToBlob(canvas, 0.68);
 
     const compressedName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-    return new File([blob], compressedName, { type: 'image/jpeg', lastModified: Date.now() });
+    return new File([blob], compressedName, { type: 'image/jpeg', lastModified: file.lastModified });
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    image.close();
   }
 };
 

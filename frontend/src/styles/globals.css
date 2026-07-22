@@ -17,6 +17,7 @@ body,
 
 body {
   background: #080908;
+  overflow-x: hidden;
 }
 
 button,
@@ -117,6 +118,50 @@ a { color: inherit; }
 .app-content {
   min-width: 0;
   padding: 1.15rem 1.9rem 2.5rem;
+}
+
+.mobile-topbar,
+.mobile-drawer,
+.drawer-backdrop {
+  display: none;
+}
+
+.menu-button,
+.drawer-close {
+  border: 0;
+  cursor: pointer;
+}
+
+.menu-button {
+  display: inline-grid;
+  gap: 0.24rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-content: center;
+  border-radius: 0.55rem;
+  background: #1a1b19;
+  color: #f5f3ef;
+}
+
+.menu-button span {
+  display: block;
+  width: 1.15rem;
+  height: 0.14rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.drawer-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #333531;
+  border-radius: 999px;
+  background: #10110f;
+  color: #f5f3ef;
+  font-weight: 900;
 }
 
 .dashboard-console,
@@ -249,7 +294,7 @@ h2 {
 
 .tile-toggle-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.85rem;
   margin-top: 0.85rem;
 }
@@ -271,7 +316,7 @@ h2 {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: 1rem;
 }
 
@@ -323,7 +368,7 @@ h2 {
 .dashboard-split,
 .manager-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(min(22rem, 100%), 0.75fr);
   gap: 1rem;
   align-items: start;
 }
@@ -382,6 +427,7 @@ h2 {
 .inline-control input,
 .resolution-comment textarea,
 .resolution-comment input {
+  min-width: 0;
   width: 100%;
   border: 1px solid #333531;
   border-radius: 0.5rem;
@@ -430,6 +476,7 @@ h2 {
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
+  min-width: 0;
 }
 
 .filter-summary {
@@ -446,6 +493,7 @@ h2 {
   display: flex;
   gap: 0.5rem;
   border-bottom: 1px solid #292a27;
+  overflow-x: auto;
 }
 
 .tab-row button {
@@ -459,6 +507,7 @@ h2 {
   cursor: pointer;
   padding: 0.8rem 0.25rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .tab-row button.active {
@@ -761,24 +810,178 @@ h2 {
 .table-wrap { overflow-x: auto; }
 
 @media (max-width: 900px) {
-  .app-shell { grid-template-columns: 1fr; }
-  .app-sidebar {
-    position: static;
-    height: auto;
-    border-right: 0;
-    border-bottom: 1px solid #20211f;
+  .app-shell {
+    grid-template-columns: 1fr;
+    min-height: 100svh;
   }
-  .side-nav { flex-direction: row; flex-wrap: wrap; }
-  .nav-section { width: 100%; }
-  .app-content { padding: 1rem; }
-  .tile-toggle-grid,
-  .metric-grid,
+
+  .app-sidebar { display: none; }
+
+  .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: calc(3.75rem + env(safe-area-inset-top, 0px));
+    border-bottom: 1px solid #20211f;
+    background: #111619;
+    padding: calc(0.7rem + env(safe-area-inset-top, 0px)) 1rem 0.7rem;
+  }
+
+  .mobile-logo-mark {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+  }
+
+  .mobile-topbar strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.05rem;
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: block;
+    background: rgba(0, 0, 0, 0.62);
+  }
+
+  .mobile-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 90;
+    display: flex;
+    width: min(22rem, 88vw);
+    max-width: 100%;
+    flex-direction: column;
+    gap: 1.35rem;
+    overflow-y: auto;
+    border-right: 1px solid #20211f;
+    background: #111619;
+    padding: calc(1.3rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 24px 0 80px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-drawer .logo {
+    padding-right: 2.6rem;
+  }
+
+  .mobile-drawer .side-nav {
+    gap: 0.35rem;
+  }
+
+  .mobile-drawer .side-nav a,
+  .mobile-drawer .link-button {
+    min-height: 2.75rem;
+  }
+
+  .app-content {
+    padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dashboard-console,
+  .people-page,
+  .page-card {
+    gap: 1rem;
+  }
+
+  .page-card,
+  .dashboard-panel,
+  .metric-card,
+  .people-summary-grid article,
+  .people-table-card,
+  .current-user-card,
+  .team-strip article {
+    border-radius: 0.65rem;
+  }
+
   .dashboard-split,
   .manager-layout,
   .people-summary-grid,
   .current-user-card,
-  .form-two-col { grid-template-columns: 1fr; }
+  .form-two-col,
+  .user-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   .console-topbar,
   .page-heading,
-  .team-row { display: grid; }
+  .panel-heading,
+  .team-row {
+    display: grid;
+  }
+
+  .console-topbar {
+    min-height: 0;
+  }
+
+  .dashboard-actions,
+  .console-topbar .primary-action,
+  .console-topbar .secondary-button,
+  .page-heading .button-row,
+  .page-heading .primary-action {
+    width: 100%;
+  }
+
+  .dashboard-actions > *,
+  .console-topbar .primary-action,
+  .console-topbar .secondary-button {
+    flex: 1 1 12rem;
+    min-height: 2.9rem;
+  }
+
+  h1 { font-size: 1.65rem; }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card {
+    min-height: 7.2rem;
+  }
+
+  .people-table-card,
+  .table-wrap {
+    margin-inline: -0.25rem;
+  }
+
+  .manager-table {
+    min-width: 42rem;
+  }
+
+  .modal-backdrop {
+    place-items: start center;
+    overflow-y: auto;
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .audit-modal {
+    width: min(100%, 42rem);
+    max-height: none;
+    padding: 2.55rem 1rem 1rem;
+  }
+
+  .tile-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-content { padding-inline: 0.8rem; }
+  .page-card { padding: 1rem; }
+  .dashboard-panel { padding: 1rem; }
+  .primary-action,
+  .secondary-button,
+  .page-heading button,
+  .form-grid button,
+  .inline-control button,
+  .resolve-button {
+    width: 100%;
+  }
 }
