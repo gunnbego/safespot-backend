@@ -15,6 +15,20 @@ const credentialsSchema = z.object({
 });
 
 const routes: FastifyPluginAsync = async (app) => {
+  const findOrganisationForLogin = (slug: string) =>
+    app.prisma.organisation.findFirst({
+      where: { slug: { equals: slug, mode: "insensitive" } },
+    });
+
+  const findUserForLogin = (organisationId: number, username: string) =>
+    app.prisma.user.findFirst({
+      where: {
+        organisationId,
+        username: { equals: username, mode: "insensitive" },
+      },
+      include: { team: true },
+    });
+
   const signToken = (user: { id: number; username: string; role: Role }, organisation: { id: number; slug: string }) =>
     app.jwt.sign(
       {
@@ -72,15 +86,12 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post("/login", { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } }, async (req, reply) => {
     const body = credentialsSchema.parse(req.body);
 
-    const organisation = await app.prisma.organisation.findUnique({ where: { slug: body.organizationSlug } });
+    const organisation = await findOrganisationForLogin(body.organizationSlug);
     if (!organisation) {
       return reply.code(404).send({ error: `Organization not found: ${body.organizationSlug}` });
     }
 
-    let user = await app.prisma.user.findUnique({
-      where: { organisationId_username: { organisationId: organisation.id, username: body.username } },
-      include: { team: true },
-    });
+    let user = await findUserForLogin(organisation.id, body.username);
     if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
       return reply.code(401).send({ error: "Invalid username or password" });
     }

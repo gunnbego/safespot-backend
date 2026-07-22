@@ -91,7 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Store token and organization slug in localStorage
       window.localStorage.setItem('safespot_token', loginResponse.token);
-      window.localStorage.setItem('safespot_org_slug', orgSlug);
+      const canonicalOrgSlug = loginResponse.organizationContext?.organizationSlug ?? orgSlug;
+      window.localStorage.setItem('safespot_org_slug', canonicalOrgSlug);
       console.debug('[Auth] Token stored, expires in:', loginResponse.expiresIn);
 
       // Use user info directly from login response to avoid race condition
@@ -99,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userProfile = mapUserProfile(loginResponse.user);
         console.debug('[Auth] User profile from login response:', userProfile.email);
         setUser(userProfile);
-        setOrganizationSlug(orgSlug);
+        setOrganizationSlug(canonicalOrgSlug);
         return;
       }
 
@@ -108,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const profile = await authApi.getProfile();
         setUser(mapUserProfile(profile));
-        setOrganizationSlug(orgSlug);
+        setOrganizationSlug(canonicalOrgSlug);
       } catch (profileError) {
         console.error(
           '[Auth] Profile fetch failed after successful login, continuing with login response user:',
@@ -118,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Don't fail the entire login operation
         if (loginResponse.user) {
           setUser(mapUserProfile(loginResponse.user));
-          setOrganizationSlug(orgSlug);
+          setOrganizationSlug(canonicalOrgSlug);
         }
       }
     } catch (error) {
