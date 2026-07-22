@@ -21,8 +21,8 @@ Vercel project
 - JWT auth (`@fastify/jwt`) — claims: `sub` (userId), `username`, `role`,
   `organisationId`, `organisationSlug`
 - bcrypt password hashing (cost 12)
-- Photos stored as bytes in Postgres (like the Spring implementation) and
-  returned as `dataUrl` base64 strings
+- New photos stored in Vercel Blob with protected API image routes; legacy
+  DB-backed photos are still rendered as base64 `dataUrl` values
 
 ## API contract (unchanged for the existing frontend)
 
@@ -105,7 +105,8 @@ npx vercel --prod
 ```
 
 Required Vercel env vars: a Postgres URL (any of the names above, e.g. from the
-attached Neon/Vercel Postgres integration) and `JWT_SECRET`. No
+attached Neon/Vercel Postgres integration), `JWT_SECRET`, and
+`BLOB_READ_WRITE_TOKEN` from the connected Vercel Blob store. No
 `SAFESPOT_BACKEND_URL` proxy is needed — the API runs inside Vercel as `/api`
 (`vercel.json` rewrites `/api/(.*)` → `/api/index` and everything else →
 `/index.html`).

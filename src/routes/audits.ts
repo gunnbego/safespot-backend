@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { PhotoPurpose, Prisma } from "@prisma/client";
+import { get, put } from "@vercel/blob";
 import { authed, badRequest, forbidden, isManagerRole, notFound } from "../lib/access.js";
 import { mapAuditDto } from "../lib/dto.js";
 import { readMultipart, type UploadedPhoto } from "../lib/multipart.js";
@@ -17,6 +18,7 @@ const createSchema = z.object({
 
 const resolveSchema = z.object({ comment: z.string().optional().nullable() }).optional().nullable();
 const idParam = z.object({ auditId: z.coerce.number().int() });
+const photoParam = z.object({ auditId: z.coerce.number().int(), photoId: z.coerce.number().int() });
 
 const defaultIfBlank = (value: string | null | undefined, fallback: string) => {
   const trimmed = value?.trim();
@@ -33,6 +35,13 @@ const withNames = {
   resolvedBy: { select: { username: true } },
 } as const;
 
+const safeBlobName = (fileName: string | null, fallback: string) =>
+  (fileName ?? fallback)
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || fallback;
+
 const routes: FastifyPluginAsync = async (app) => {
   const currentUser = async (req: FastifyRequest) => {
     const user = await app.prisma.user.findFirst({
@@ -42,15 +51,35 @@ const routes: FastifyPluginAsync = async (app) => {
     return user;
   };
 
-  const photoData = (organisationId: number, reportId: number, photos: UploadedPhoto[], purpose: PhotoPurpose) =>
-    photos.map(photo => ({
-      organisationId,
-      reportId,
-      fileName: photo.fileName,
-      contentType: photo.contentType,
-      sizeBytes: photo.buffer.length,
-      data: new Uint8Array(photo.buffer),
-      purpose,
+  const canAccessReport = async (req: FastifyRequest, report: { teamId: number }) => {
+    if (isManagerRole(req.auth.role)) return true;
+    const user = await currentUser(req);
+    return user.teamId === report.teamId;
+  };
+
+  const photoData = async (organisationId: number, reportId: number, photos: UploadedPhoto[], purpose: PhotoPurpose) =>
+    Promise.all(photos.map(async (photo, index) => {
+      const fileName = safeBlobName(photo.fileName, `photo-${index + 1}.jpg`);
+      const blob = await put(
+        `organisations/${organisationId}/reports/${reportId}/${purpose.toLowerCase()}/${fileName}`,
+        photo.buffer,
+        {
+          access: "private",
+          addRandomSuffix: true,
+          contentType: photo.contentType,
+        },
+      );
+
+      return {
+        organisationId,
+        reportId,
+        fileName: photo.fileName,
+        contentType: photo.contentType,
+        sizeBytes: photo.buffer.length,
+        blobUrl: blob.url,
+        blobPathname: blob.pathname,
+        purpose,
+      };
     }));
 
   const loadDto = async (req: FastifyRequest, reportId: number, includePhotos: boolean) => {
@@ -111,7 +140,7 @@ const routes: FastifyPluginAsync = async (app) => {
     });
     if (photos.length) {
       await app.prisma.safetyReportPhoto.createMany({
-        data: photoData(organisationId, report.id, photos, PhotoPurpose.HAZARD),
+        data: await photoData(organisationId, report.id, photos, PhotoPurpose.HAZARD),
       });
     }
 
@@ -161,6 +190,31 @@ const routes: FastifyPluginAsync = async (app) => {
     return dto;
   });
 
+  app.get("/:auditId/photos/:photoId", { preHandler: authed }, async (req, reply) => {
+    const { auditId, photoId } = photoParam.parse(req.params);
+    const organisationId = req.auth.organisationId;
+    const photo = await app.prisma.safetyReportPhoto.findFirst({
+      where: { id: photoId, reportId: auditId, organisationId },
+      include: { report: { select: { teamId: true } } },
+    });
+    if (!photo) return reply.code(404).send({ error: "Photo not found" });
+    if (!await canAccessReport(req, photo.report)) throw forbidden("Access denied to this photo");
+
+    reply.header("Content-Type", photo.contentType);
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Cache-Control", "private, max-age=300");
+
+    if (photo.blobPathname) {
+      const result = await get(photo.blobPathname, { access: "private" });
+      if (!result || result.statusCode !== 200) return reply.code(404).send({ error: "Photo file not found" });
+      const arrayBuffer = await new Response(result.stream).arrayBuffer();
+      return reply.send(Buffer.from(arrayBuffer));
+    }
+
+    if (photo.data) return reply.send(Buffer.from(photo.data));
+    return reply.code(404).send({ error: "Photo file not found" });
+  });
+
   app.patch("/:auditId/resolve", { preHandler: authed }, async (req) => {
     const { auditId } = idParam.parse(req.params);
     const organisationId = req.auth.organisationId;
@@ -190,7 +244,7 @@ const routes: FastifyPluginAsync = async (app) => {
     });
     if (photos.length) {
       await app.prisma.safetyReportPhoto.createMany({
-        data: photoData(organisationId, report.id, photos, PhotoPurpose.RESOLUTION),
+        data: await photoData(organisationId, report.id, photos, PhotoPurpose.RESOLUTION),
       });
     }
 

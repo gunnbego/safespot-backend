@@ -19,10 +19,36 @@ interface SafetyReport {
 const isResolved = (report: SafetyReport) => report.status?.toLowerCase() === 'resolved';
 const isHighRisk = (report: SafetyReport) => ['high', 'extreme', 'critical'].includes(report.severity?.toLowerCase());
 
+type DashboardTileId = 'openHazards' | 'openIncidents' | 'highRiskHazards' | 'evidencePhotos' | 'resolvedIssues' | 'activeRegister';
+
+const ALL_DASHBOARD_TILES: DashboardTileId[] = [
+  'openHazards',
+  'openIncidents',
+  'highRiskHazards',
+  'evidencePhotos',
+  'resolvedIssues',
+  'activeRegister'
+];
+
+const defaultTileIds: DashboardTileId[] = ['openHazards', 'openIncidents', 'highRiskHazards', 'evidencePhotos'];
+
+const tileStorageKey = (userId?: string) => `safespot.dashboard.tiles.${userId ?? 'anonymous'}`;
+
 const ManagerDashboard = () => {
   const { user } = useAuth();
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tileIds, setTileIds] = useState<DashboardTileId[]>(() => {
+    const saved = window.localStorage.getItem(tileStorageKey(user?.id));
+    if (!saved) return defaultTileIds;
+    try {
+      const parsed = JSON.parse(saved) as DashboardTileId[];
+      const validTiles = parsed.filter((tile) => ALL_DASHBOARD_TILES.includes(tile));
+      return validTiles.length ? validTiles : defaultTileIds;
+    } catch {
+      return defaultTileIds;
+    }
+  });
 
   useEffect(() => {
     auditApi
@@ -36,19 +62,66 @@ const ManagerDashboard = () => {
     () => [...reports].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, 5),
     [reports]
   );
-  const hazardCount = reports.filter((report) => report.category?.toLowerCase() === 'hazard').length;
-  const incidentCount = reports.filter((report) => report.category?.toLowerCase() === 'incident').length;
+  const hazardCount = activeReports.filter((report) => report.category?.toLowerCase() === 'hazard').length;
+  const incidentCount = activeReports.filter((report) => report.category?.toLowerCase() === 'incident').length;
   const highRiskCount = activeReports.filter(isHighRisk).length;
   const photoEvidenceCount = reports.reduce((total, report) => total + Number(report.photoCount ?? 0), 0);
 
-  const tiles = [
-    { label: 'Open hazards', value: hazardCount, detail: `${highRiskCount} high risk`, tone: 'amber' },
-    { label: 'Open incidents', value: incidentCount, detail: 'Awaiting triage or closure', tone: 'red' },
-    { label: 'High-risk hazards', value: highRiskCount, detail: 'Needs manager attention', tone: 'red' },
-    { label: 'Evidence photos', value: photoEvidenceCount, detail: 'Attached to reports', tone: 'blue' },
-    { label: 'Resolved issues', value: reports.length - activeReports.length, detail: 'Closed with controls', tone: 'green' },
-    { label: 'Active register', value: activeReports.length, detail: 'Hazards and incidents', tone: 'amber' }
-  ];
+  const tiles: Record<DashboardTileId, { label: string; value: number; detail: string; tone: string; href: string }> = {
+    openHazards: {
+      label: 'Open hazards',
+      value: hazardCount,
+      detail: `${highRiskCount} high risk`,
+      tone: 'amber',
+      href: '/team-audits?status=active&category=hazard'
+    },
+    openIncidents: {
+      label: 'Open incidents',
+      value: incidentCount,
+      detail: 'Awaiting triage or closure',
+      tone: 'red',
+      href: '/team-audits?status=active&category=incident'
+    },
+    highRiskHazards: {
+      label: 'High-risk hazards',
+      value: highRiskCount,
+      detail: 'Needs manager attention',
+      tone: 'red',
+      href: '/team-audits?status=active&severity=high-risk'
+    },
+    evidencePhotos: {
+      label: 'Evidence photos',
+      value: photoEvidenceCount,
+      detail: 'Attached to reports',
+      tone: 'blue',
+      href: '/team-audits?photos=1'
+    },
+    resolvedIssues: {
+      label: 'Resolved issues',
+      value: reports.length - activeReports.length,
+      detail: 'Closed with controls',
+      tone: 'green',
+      href: '/team-audits?status=closed'
+    },
+    activeRegister: {
+      label: 'Active register',
+      value: activeReports.length,
+      detail: 'Hazards and incidents',
+      tone: 'amber',
+      href: '/team-audits?status=active'
+    }
+  };
+
+  const visibleTileIds = ALL_DASHBOARD_TILES.filter((tileId) => tileIds.includes(tileId));
+
+  const toggleTile = (tileId: DashboardTileId) => {
+    const next = tileIds.includes(tileId)
+      ? tileIds.filter((id) => id !== tileId)
+      : [...tileIds, tileId];
+    const ordered = ALL_DASHBOARD_TILES.filter((id) => next.includes(id));
+    setTileIds(ordered);
+    window.localStorage.setItem(tileStorageKey(user?.id), JSON.stringify(ordered));
+  };
 
   return (
     <section className="dashboard-console">
@@ -63,23 +136,33 @@ const ManagerDashboard = () => {
       <div className="dashboard-panel tile-picker">
         <h2>Dashboard tiles</h2>
         <div className="tile-toggle-grid">
-          {tiles.slice(0, 4).map((tile) => (
-            <label key={tile.label}>
-              <input type="checkbox" checked readOnly />
-              {tile.label}
+          {ALL_DASHBOARD_TILES.map((tileId) => (
+            <label key={tileId}>
+              <input
+                type="checkbox"
+                checked={tileIds.includes(tileId)}
+                onChange={() => toggleTile(tileId)}
+              />
+              {tiles[tileId].label}
             </label>
           ))}
         </div>
       </div>
 
       <div className="metric-grid">
-        {tiles.map((tile) => (
-          <article key={tile.label} className={`metric-card ${tile.tone}`}>
+        {visibleTileIds.map((tileId) => {
+          const tile = tiles[tileId];
+          return (
+          <Link key={tileId} to={tile.href} className={`metric-card ${tile.tone}`}>
             <span>{tile.label}</span>
             <strong>{loading ? '-' : tile.value}</strong>
             <p>{tile.detail}</p>
-          </article>
-        ))}
+          </Link>
+          );
+        })}
+        {!visibleTileIds.length && (
+          <div className="empty-state">Choose at least one dashboard tile above.</div>
+        )}
       </div>
 
       <div className="dashboard-split">

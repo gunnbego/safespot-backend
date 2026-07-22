@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
 import AuditCard from '../components/AuditCard';
 
@@ -16,11 +16,13 @@ interface Audit {
   photoCount?: number;
 }
 
+const isHighRisk = (audit: Audit) => ['high', 'extreme', 'critical'].includes(audit.severity?.toLowerCase());
+
 const TeamAuditsPage = () => {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'active' | 'closed'>('active');
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     auditApi
@@ -29,16 +31,44 @@ const TeamAuditsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const tab: 'active' | 'closed' = searchParams.get('status') === 'closed' ? 'closed' : 'active';
+  const categoryFilter = searchParams.get('category')?.toLowerCase() ?? '';
+  const severityFilter = searchParams.get('severity') ?? '';
+  const photosOnly = searchParams.get('photos') === '1';
+
   const activeAudits = audits.filter((audit) => audit.status?.toLowerCase() !== 'resolved');
   const closedAudits = audits.filter((audit) => audit.status?.toLowerCase() === 'resolved');
   const visibleAudits = useMemo(() => {
     const source = tab === 'active' ? activeAudits : closedAudits;
     const search = query.trim().toLowerCase();
-    if (!search) return source;
-    return source.filter((audit) => [audit.title, audit.category, audit.severity, audit.status, audit.createdBy]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(search)));
-  }, [activeAudits, closedAudits, query, tab]);
+    return source
+      .filter((audit) => !categoryFilter || audit.category?.toLowerCase() === categoryFilter)
+      .filter((audit) => severityFilter !== 'high-risk' || isHighRisk(audit))
+      .filter((audit) => !photosOnly || Number(audit.photoCount ?? 0) > 0)
+      .filter((audit) => {
+        if (!search) return true;
+        return [audit.title, audit.category, audit.severity, audit.status, audit.createdBy, audit.submittedBy]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+      });
+  }, [activeAudits, categoryFilter, closedAudits, photosOnly, query, severityFilter, tab]);
+
+  const setTab = (nextTab: 'active' | 'closed') => {
+    const next = new URLSearchParams(searchParams);
+    next.set('status', nextTab);
+    setSearchParams(next);
+  };
+
+  const clearFilters = () => {
+    setQuery('');
+    setSearchParams({ status: tab });
+  };
+
+  const activeFilterLabels = [
+    categoryFilter ? `${categoryFilter[0].toUpperCase()}${categoryFilter.slice(1)} only` : '',
+    severityFilter === 'high-risk' ? 'High risk only' : '',
+    photosOnly ? 'With evidence photos' : ''
+  ].filter(Boolean);
 
   return (
     <section className="page-card register-page">
@@ -61,6 +91,14 @@ const TeamAuditsPage = () => {
       </div>
       <div className="people-toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search hazard register..." />
+        {activeFilterLabels.length > 0 && (
+          <>
+            <span className="filter-summary">{activeFilterLabels.join(' · ')}</span>
+            <button type="button" className="secondary-button" onClick={clearFilters}>
+              Clear filters
+            </button>
+          </>
+        )}
       </div>
       {loading ? (
         <div className="empty-state">Loading safety reports...</div>

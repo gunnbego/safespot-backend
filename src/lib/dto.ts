@@ -77,7 +77,8 @@ export interface AuditPhotoDto {
   fileName: string | null;
   contentType: string;
   sizeBytes: number;
-  dataUrl: string;
+  dataUrl: string | null;
+  imageUrl: string | null;
   purpose: PhotoPurpose;
 }
 
@@ -86,7 +87,8 @@ export const mapPhotoDto = (photo: SafetyReportPhoto): AuditPhotoDto => ({
   fileName: photo.fileName,
   contentType: photo.contentType,
   sizeBytes: photo.sizeBytes,
-  dataUrl: `data:${photo.contentType};base64,${Buffer.from(photo.data).toString("base64")}`,
+  dataUrl: photo.data ? `data:${photo.contentType};base64,${Buffer.from(photo.data).toString("base64")}` : null,
+  imageUrl: photo.blobPathname ? `/audits/${photo.reportId}/photos/${photo.id}` : null,
   purpose: photo.purpose,
 });
 

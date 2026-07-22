@@ -105,8 +105,9 @@ model SafetyReport {
   @@map("safety_reports")
 }
 
-/// Equivalent of the legacy `audit_photos` table. Image bytes are stored in
-/// Postgres (like the Spring Boot implementation) and served back as data URLs.
+/// Equivalent of the legacy `audit_photos` table. New uploads are stored in
+/// Vercel Blob, while `data` remains nullable so legacy DB-backed photos still
+/// render until they are migrated.
 model SafetyReportPhoto {
   id             Int          @id @default(autoincrement())
   organisationId Int          @map("organisation_id")
@@ -114,7 +115,9 @@ model SafetyReportPhoto {
   fileName       String?      @map("file_name") @db.VarChar(255)
   contentType    String       @map("content_type") @db.VarChar(100)
   sizeBytes      Int          @map("size_bytes")
-  data           Bytes
+  data           Bytes?
+  blobUrl        String?      @map("blob_url")
+  blobPathname   String?      @map("blob_pathname")
   purpose        PhotoPurpose @default(HAZARD)
   createdAt      DateTime     @default(now()) @map("created_at")
 

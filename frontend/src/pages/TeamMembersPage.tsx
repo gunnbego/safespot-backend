@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../auth/AuthProvider';
 import { teamApi, MemberPayload, OrganizationMember, Team } from '../api/teamApi';
 
 type Role = 'MEMBER' | 'MANAGER';
@@ -24,6 +25,7 @@ const blankMemberForm: MemberFormState = {
 };
 
 const TeamMembersPage = () => {
+  const { user } = useAuth();
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [memberForm, setMemberForm] = useState<MemberFormState>(blankMemberForm);
@@ -38,9 +40,19 @@ const TeamMembersPage = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const sortedMembers = useMemo(
+  const currentMember = useMemo(
+    () => members.find((member) => String(member.id) === user?.id) ?? null,
+    [members, user?.id]
+  );
+
+  const otherMembers = useMemo(
+    () => members.filter((member) => String(member.id) !== user?.id),
+    [members, user?.id]
+  );
+
+  const sortedOtherMembers = useMemo(
     () =>
-      [...members]
+      [...otherMembers]
         .filter((member) => {
           const query = search.trim().toLowerCase();
           if (!query) return true;
@@ -49,7 +61,7 @@ const TeamMembersPage = () => {
             .some((value) => String(value).toLowerCase().includes(query));
         })
         .sort((a, b) => a.username.localeCompare(b.username)),
-    [members, search]
+    [otherMembers, search]
   );
 
   const unassignedCount = members.filter((member) => member.teamId == null).length;
@@ -248,9 +260,29 @@ const TeamMembersPage = () => {
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search users..."
+          placeholder="Search other users..."
         />
       </div>
+
+      {currentMember && (
+        <div className="current-user-card">
+          <div className="person-cell">
+            <div className="person-title-row">
+              <strong>{currentMember.username}</strong>
+              <span className="you-pill">You</span>
+            </div>
+            <span>{currentMember.organizationName || 'Organization member'}</span>
+          </div>
+          <div className="person-cell">
+            <span>{currentMember.email || 'No email'}</span>
+            <span>{currentMember.phone || 'No phone'}</span>
+          </div>
+          <span className="status-pill">{currentMember.role}</span>
+          <div className="person-cell">
+            <strong>{currentMember.teamName || 'Unassigned'}</strong>
+          </div>
+        </div>
+      )}
 
       <div className="people-table-card">
         {loading ? (
@@ -267,20 +299,28 @@ const TeamMembersPage = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedMembers.map((member) => (
+              {sortedOtherMembers.map((member) => (
                 <tr key={member.id} onClick={() => openMemberModal(member)}>
                   <td>
-                    <strong>{member.username}</strong>
-                    <span>{member.organizationName || 'Organization member'}</span>
+                    <div className="person-cell">
+                      <strong>{member.username}</strong>
+                      <span>{member.organizationName || 'Organization member'}</span>
+                    </div>
                   </td>
                   <td>
-                    <span>{member.email || 'No email'}</span>
-                    <span>{member.phone || 'No phone'}</span>
+                    <div className="person-cell">
+                      <span>{member.email || 'No email'}</span>
+                      <span>{member.phone || 'No phone'}</span>
+                    </div>
                   </td>
                   <td>
                     <span className="status-pill">{member.role}</span>
                   </td>
-                  <td>{member.teamName || 'Unassigned'}</td>
+                  <td>
+                    <div className="person-cell">
+                      <strong>{member.teamName || 'Unassigned'}</strong>
+                    </div>
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -296,9 +336,9 @@ const TeamMembersPage = () => {
                   </td>
                 </tr>
               ))}
-              {sortedMembers.length === 0 && (
+              {sortedOtherMembers.length === 0 && (
                 <tr>
-                  <td colSpan={5}>No users found.</td>
+                  <td colSpan={5}>No other users found.</td>
                 </tr>
               )}
             </tbody>

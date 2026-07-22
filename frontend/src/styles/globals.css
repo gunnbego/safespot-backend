@@ -182,6 +182,7 @@ h2 {
 .page-heading p { margin-top: 0.35rem; }
 
 .primary-action,
+.secondary-button,
 .page-heading button,
 .form-grid button,
 .inline-control button,
@@ -228,6 +229,7 @@ h2 {
 .entity-card,
 .people-summary-grid article,
 .people-table-card,
+.current-user-card,
 .team-strip article,
 .manager-form,
 .user-detail-grid > div:not(.button-row):not(.password-reset-panel),
@@ -280,6 +282,13 @@ h2 {
   overflow: hidden;
   padding: 1.15rem;
   text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.metric-card:hover {
+  border-color: #4c4d49;
+  background: #20211e;
+  transform: translateY(-1px);
 }
 
 .metric-card::before {
@@ -421,6 +430,16 @@ h2 {
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
+}
+
+.filter-summary {
+  border: 1px solid #343632;
+  border-radius: 999px;
+  background: #20211e;
+  color: #d7d3ca;
+  padding: 0.46rem 0.7rem;
+  font-size: 0.84rem;
+  font-weight: 850;
 }
 
 .tab-row {
@@ -608,7 +627,33 @@ h2 {
 
 .people-summary-grid p { color: #8c8b86; }
 
-.people-table-card { overflow: hidden; }
+.people-table-card { overflow-x: auto; }
+
+.current-user-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(200px, 1.1fr) minmax(110px, auto) minmax(180px, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+}
+
+.person-cell {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
+.person-cell strong,
+.person-cell span {
+  overflow-wrap: anywhere;
+}
+
+.person-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
 
 .table-empty { padding: 1.25rem; }
 
@@ -638,10 +683,27 @@ h2 {
 .people-table tbody tr { cursor: pointer; }
 .people-table tbody tr:hover { background: #20211e; }
 
+.status-pill,
+.you-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+}
+
 .status-pill {
   border: 1px solid #31659f;
   background: #142334;
   color: #9cc8ff;
+}
+
+.you-pill {
+  border: 1px solid #466732;
+  border-radius: 999px;
+  background: #172417;
+  color: #aeea94;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 900;
 }
 
 .kebab-button {
@@ -669,6 +731,12 @@ h2 {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
+}
+
+.team-strip article > div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .people-modal { width: min(680px, 100%); }
@@ -708,6 +776,7 @@ h2 {
   .dashboard-split,
   .manager-layout,
   .people-summary-grid,
+  .current-user-card,
   .form-two-col { grid-template-columns: 1fr; }
   .console-topbar,
   .page-heading,

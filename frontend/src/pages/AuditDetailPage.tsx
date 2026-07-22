@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { auditApi } from '../api/auditApi';
+import httpClient from '../api/httpClient';
 import { useAuth } from '../auth/AuthProvider';
 import { compressImage } from './SubmitAuditPage';
 
@@ -9,7 +10,8 @@ interface AuditPhoto {
   fileName?: string;
   contentType: string;
   sizeBytes: number;
-  dataUrl: string;
+  dataUrl?: string | null;
+  imageUrl?: string | null;
   purpose?: string;
 }
 
@@ -28,6 +30,38 @@ interface AuditDetail {
   resolutionComment?: string;
   photos?: AuditPhoto[];
 }
+
+const AuditPhotoImage = ({ photo, alt }: { photo: AuditPhoto; alt: string }) => {
+  const [src, setSrc] = useState(photo.dataUrl || '');
+
+  useEffect(() => {
+    if (!photo.imageUrl) {
+      setSrc(photo.dataUrl || '');
+      return;
+    }
+
+    let objectUrl = '';
+    let cancelled = false;
+    httpClient
+      .get(photo.imageUrl, { responseType: 'blob' })
+      .then((response) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(photo.dataUrl || '');
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [photo.dataUrl, photo.imageUrl]);
+
+  if (!src) return null;
+  return <img src={src} alt={alt} />;
+};
 
 const AuditDetailPage = () => {
   const { id } = useParams();
@@ -132,7 +166,7 @@ const AuditDetailPage = () => {
           <div className="detail-block">
             <strong>Hazard or incident photos</strong>
             <div className="audit-photo-grid">
-              {hazardPhotos.map((photo) => <img key={photo.id} src={photo.dataUrl} alt={photo.fileName || 'Report photo'} />)}
+              {hazardPhotos.map((photo) => <AuditPhotoImage key={photo.id} photo={photo} alt={photo.fileName || 'Report photo'} />)}
             </div>
           </div>
         )}
@@ -148,7 +182,7 @@ const AuditDetailPage = () => {
           <div className="detail-block">
             <strong>Resolution evidence</strong>
             <div className="audit-photo-grid">
-              {closurePhotos.map((photo) => <img key={photo.id} src={photo.dataUrl} alt={photo.fileName || 'Resolution photo'} />)}
+              {closurePhotos.map((photo) => <AuditPhotoImage key={photo.id} photo={photo} alt={photo.fileName || 'Resolution photo'} />)}
             </div>
           </div>
         )}
